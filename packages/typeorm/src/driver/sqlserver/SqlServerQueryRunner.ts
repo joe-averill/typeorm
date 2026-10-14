@@ -4431,7 +4431,9 @@ export class SqlServerQueryRunner
      *
      * @param parameter
      */
-    protected mssqlParameterToNativeParameter(parameter: MssqlParameter): any {
+    protected mssqlParameterToNativeParameter(
+        parameter: Pick<MssqlParameter, "type" | "params">,
+    ): any {
         switch (this.driver.normalizeType({ type: parameter.type as any })) {
             case "bit":
                 return this.driver.mssql.Bit
@@ -4524,7 +4526,7 @@ export class SqlServerQueryRunner
      * Converts the value of MssqlParameter into the value that mssql expects.
      * A "tvp" value becomes an mssql Table. Other values pass through.
      */
-    protected mssqlParameterToNativeValue(parameter: MssqlParameter): any {
+    protected mssqlParameterToNativeValue(parameter: MssqlParameter): unknown {
         if (parameter.type !== "tvp") return parameter.value
 
         const value = parameter.value as MssqlTableValuedParameterValue
@@ -4533,13 +4535,10 @@ export class SqlServerQueryRunner
 
         const table = new this.driver.mssql.Table(value.typeName)
         for (const column of value.columns) {
-            const nativeType = this.mssqlParameterToNativeParameter(
-                new MssqlParameter(
-                    undefined,
-                    column.type as any,
-                    ...(column.params ?? []),
-                ),
-            )
+            const nativeType = this.mssqlParameterToNativeParameter({
+                type: column.type,
+                params: column.params ?? [],
+            })
             table.columns.add(column.name, nativeType, {
                 nullable: column.nullable ?? true,
             })

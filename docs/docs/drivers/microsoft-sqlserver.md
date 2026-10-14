@@ -221,6 +221,63 @@ const results = await dataSource.query(
 - SQL Server version with vector support enabled
 - Vector dimensions must be specified using the `length` option
 
+## Table Valued Parameters
+
+SQL Server has no array parameter. A list of values in `In([...])` becomes one bind parameter for each value, and SQL Server allows about 2,100 parameters in one request. A [table valued parameter](https://learn.microsoft.com/en-us/sql/relational-databases/tables/use-table-valued-parameters-database-engine) (TVP) sends many typed rows as one parameter. Use a TVP to filter or join on a large list of values.
+
+### Create the table type
+
+TypeORM does not create the table type. Create it in the database first:
+
+```sql
+CREATE TYPE dbo.IdList AS TABLE (Id int NOT NULL PRIMARY KEY)
+```
+
+### Usage
+
+Pass an `MssqlParameter` with the `tvp` type. The value has the table type name, the columns, and the rows. Each row is an array of values in the order of `columns`.
+
+```typescript
+import { MssqlParameter } from "typeorm"
+
+const ids = new MssqlParameter(
+    {
+        typeName: "dbo.IdList",
+        columns: [{ name: "Id", type: "int", nullable: false }],
+        rows: [[1], [2], [3]],
+    },
+    "tvp",
+)
+
+const rows = await dataSource.query(
+    `SELECT t.* FROM dbo.SomeTable AS t JOIN @0 AS ids ON ids.Id = t.Id`,
+    [ids],
+)
+```
+
+A column can have these types: `bit`, `bigint`, `decimal`, `float`, `int`, `money`, `numeric`, `smallint`, `smallmoney`, `real`, `tinyint`, `char`, `nchar`, `varchar`, `nvarchar`, `time`, `date`, `datetime`, `datetime2`, `datetimeoffset`, `smalldatetime`, `uniqueidentifier`, `binary`, and `varbinary`. Use `params` for the length, precision, or scale, for example `{ name: "Name", type: "nvarchar", params: [50] }`.
+
+You can also pass a `Table` that you build with the `mssql` package. TypeORM sends it as is.
+
+### Query builder
+
+Use the parameter name in a sub query, and set the parameter with `setParameter`:
+
+```typescript
+const rows = await dataSource
+    .createQueryBuilder()
+    .select("t.Id", "Id")
+    .from("dbo.SomeTable", "t")
+    .innerJoin("(SELECT Id FROM :ids)", "ids", "ids.Id = t.Id")
+    .setParameter("ids", ids)
+    .getRawMany()
+```
+
+### Limits
+
+- The table type must be in the default schema of the database login (usually `dbo`) when you use `tedious` before version 19.2.2. Those versions leave the schema out of the parameter declaration. This is fixed in [tediousjs/tedious#1730](https://github.com/tediousjs/tedious/pull/1730). `mssql` 12 and later depend on a fixed `tedious` version.
+- The columns in the value must match the columns of the table type in number and order.
+
 ## Known Issues
 
 ### Connection pool does not reset isolation level

@@ -1,10 +1,39 @@
 /**
+ * SQL Server types that a table valued parameter column can have.
+ */
+export type MssqlTableValuedParameterColumnType =
+    | "bit"
+    | "bigint"
+    | "decimal"
+    | "float"
+    | "int"
+    | "money"
+    | "numeric"
+    | "smallint"
+    | "smallmoney"
+    | "real"
+    | "tinyint"
+    | "char"
+    | "nchar"
+    | "varchar"
+    | "nvarchar"
+    | "time"
+    | "date"
+    | "datetime"
+    | "datetime2"
+    | "datetimeoffset"
+    | "smalldatetime"
+    | "uniqueidentifier"
+    | "binary"
+    | "varbinary"
+
+/**
  * Column of a table valued parameter.
- * "type" is a SQL Server type name. "params" are the length, precision, or scale of the type.
+ * "params" are the length, precision, or scale of the type.
  */
 export interface MssqlTableValuedParameterColumn {
     name: string
-    type: string
+    type: MssqlTableValuedParameterColumnType
     params?: number[]
     nullable?: boolean
 }
@@ -17,7 +46,7 @@ export interface MssqlTableValuedParameterColumn {
 export interface MssqlTableValuedParameterValue {
     typeName: string
     columns: MssqlTableValuedParameterColumn[]
-    rows: any[][]
+    rows: unknown[][]
 }
 
 /**
