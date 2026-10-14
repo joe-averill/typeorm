@@ -1,4 +1,26 @@
 /**
+ * Column of a table valued parameter.
+ * "type" is a SQL Server type name. "params" are the length, precision, or scale of the type.
+ */
+export interface MssqlTableValuedParameterColumn {
+    name: string
+    type: string
+    params?: number[]
+    nullable?: boolean
+}
+
+/**
+ * Value of a table valued parameter.
+ * "typeName" is the user defined table type in the database, for example "dbo.IdList".
+ * Each row is an array of values in the order of "columns".
+ */
+export interface MssqlTableValuedParameterValue {
+    typeName: string
+    columns: MssqlTableValuedParameterColumn[]
+    rows: any[][]
+}
+
+/**
  * Sql server driver requires parameter types to be specified fo input parameters used in the query.
  *
  * @see https://github.com/patriksimek/node-mssql#data-types
@@ -50,6 +72,7 @@ export class MssqlParameter {
     constructor(value: any, type: "geometry")
     constructor(value: any, type: "rowversion")
     constructor(value: any, type: "vector", length: number)
+    constructor(value: MssqlTableValuedParameterValue | object, type: "tvp")
     constructor(
         public value: any,
         public type: string,

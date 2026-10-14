@@ -28,7 +28,10 @@ import type { IsolationLevel } from "../types/IsolationLevel"
 import { validateIsolationLevel } from "../validate-isolation-level"
 import { MetadataTableType } from "../types/MetadataTableType"
 import type { ReplicationMode } from "../types/ReplicationMode"
-import type { MssqlParameter } from "./MssqlParameter"
+import {
+    MssqlParameter,
+    type MssqlTableValuedParameterValue,
+} from "./MssqlParameter"
 import type { SqlServerDriver } from "./SqlServerDriver"
 
 /**
@@ -254,7 +257,7 @@ export class SqlServerQueryRunner
                             request.input(
                                 parameterName,
                                 mssqlParameter,
-                                parameter.value,
+                                this.mssqlParameterToNativeValue(parameter),
                             )
                         } else {
                             request.input(parameterName, parameter.value)
@@ -392,7 +395,7 @@ export class SqlServerQueryRunner
                     request.input(
                         parameterName,
                         this.mssqlParameterToNativeParameter(parameter),
-                        parameter.value,
+                        this.mssqlParameterToNativeValue(parameter),
                     )
                 } else {
                     request.input(parameterName, parameter)
@@ -4512,7 +4515,37 @@ export class SqlServerQueryRunner
                 return this.driver.mssql.RowVersion
             case "vector":
                 return this.driver.mssql.Ntext
+            case "tvp":
+                return this.driver.mssql.TVP
         }
+    }
+
+    /**
+     * Converts the value of MssqlParameter into the value that mssql expects.
+     * A "tvp" value becomes an mssql Table. Other values pass through.
+     */
+    protected mssqlParameterToNativeValue(parameter: MssqlParameter): any {
+        if (parameter.type !== "tvp") return parameter.value
+
+        const value = parameter.value as MssqlTableValuedParameterValue
+        // an mssql Table was given directly
+        if (value instanceof this.driver.mssql.Table) return value
+
+        const table = new this.driver.mssql.Table(value.typeName)
+        for (const column of value.columns) {
+            const nativeType = this.mssqlParameterToNativeParameter(
+                new MssqlParameter(
+                    undefined,
+                    column.type as any,
+                    ...(column.params ?? []),
+                ),
+            )
+            table.columns.add(column.name, nativeType, {
+                nullable: column.nullable ?? true,
+            })
+        }
+        for (const row of value.rows) table.rows.add(...row)
+        return table
     }
 
     /**
